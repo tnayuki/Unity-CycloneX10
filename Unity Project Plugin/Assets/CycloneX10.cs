@@ -9,7 +9,7 @@ using Microsoft.Win32.SafeHandles;
 [DisallowMultipleComponent]
 public class CycloneX10 : MonoBehaviour
 {
-    [SerializeField]
+	[SerializeField]
     [Range(0, 9)]
     private int _pattern = 0;
 
@@ -49,9 +49,9 @@ public class CycloneX10 : MonoBehaviour
     private int oldPattern = 0;
     private int oldLevel = 0;
 
-    private SafeFileHandle fileHandle;
-
 #if UNITY_STANDALONE_WIN
+	private SafeFileHandle fileHandle;
+
     [StructLayout(LayoutKind.Sequential)]
     internal struct HIDD_ATTRIBUTES
     {
@@ -154,6 +154,33 @@ public class CycloneX10 : MonoBehaviour
             }
         }
     }
+#endif
+
+#if UNITY_STANDALONE_OSX
+	[DllImport ("CycloneX10Plugin")]
+	private static extern void InitializePlugin ();
+
+	[DllImport ("CycloneX10Plugin")]
+	public static extern void DeinitializePlugin ();
+
+	[DllImport ("CycloneX10Plugin")]
+	private static extern void VibrateInternal (int index, int pattern, int level);
+
+	private static bool isInitialized = false;
+#endif
+
+#if UNITY_STANDALONE_OSX
+	void Start()
+	{
+		if (isInitialized) {
+			return;
+		}
+
+		isInitialized = true;
+
+		InitializePlugin ();
+	}
+#endif
 
     // Update is called once per frame
     void Update()
@@ -170,14 +197,24 @@ public class CycloneX10 : MonoBehaviour
     void OnDestroy()
     {
         SetPatternAndLevel(0, 0);
-    }
+
+#if UNITY_STANDALONE_OSX
+		DeinitializePlugin();
+#endif
+	}
 
     private void SetPatternAndLevel(int pattern, int level)
     {
+#if UNITY_STANDALONE_WIN
         byte[] buffer = new byte[] { 0x00, 0x3C, 0x30, 0x31, 0x35, 0x32, 0x30, (byte)(0x30 + pattern), (byte)(0x30 + level), 0x30, 0x30, 0x01, 0x02, 0x03, 0x68, 0x3E };
 
         uint numberOfBytesWritten;
         WriteFile(fileHandle, buffer, (uint)buffer.Length, out numberOfBytesWritten, IntPtr.Zero);
-    }
 #endif
+
+#if UNITY_STANDALONE_OSX
+		VibrateInternal(-1, pattern, level);
+#endif
+    }
+
 }
